@@ -5,7 +5,7 @@ public class Menu {
 
     public static final String BD = "dataset/capitulos.db";
 
-    public static void menu() throws IOException {
+    public static void menu(TreeBplus arvore, HashEstendido hash) throws IOException {
         while (true) {
             MyIO.println("\n--- Menu CRUD Capitulo ---");
             MyIO.println("1. Criar Capitulo");
@@ -20,29 +20,29 @@ public class Menu {
 
             switch (opcao) {
                 case 1 -> {
-                    if (criarCapitulo(AuxFuncoes.CriarNovoCapitulo())) {
+                    if (criarCapitulo(AuxFuncoes.CriarNovoCapitulo(), arvore, hash)) {
                         MyIO.println("Criado com sucesso");
                     } else {
                         MyIO.println("Falhou na criacao");
                     }
                 }
                 case 2 -> {
-                    if (!lerCapitulo(AuxFuncoes.qualID())) {
+                    if (!lerCapitulo(AuxFuncoes.qualID(), arvore, hash)) {
                         MyIO.println("Nao encontrado");
                     }
                 }
                 case 3 ->
-                    lerCapitulos(AuxFuncoes.PerguntaQTD_ID());
+                    lerCapitulos(AuxFuncoes.PerguntaQTD_ID(), arvore, hash);
 
                 case 4 -> {
-                    if (atualizarCapitulo(AuxFuncoes.qualID())) {
+                    if (atualizarCapitulo(AuxFuncoes.qualID(), arvore, hash)) {
                         MyIO.println("Atualizado com sucesso");
                     } else {
                         MyIO.println("Falhou na atualizacao");
                     }
                 }
                 case 5 -> {
-                    if (deletarCapitulo(AuxFuncoes.qualID())) {
+                    if (deletarCapitulo(AuxFuncoes.qualID(), arvore, hash)) {
                         MyIO.println("Excluido com sucesso");
                     } else {
                         MyIO.println("Falhou na exclusao");
@@ -58,92 +58,126 @@ public class Menu {
         }
     }
 
-    private static boolean criarCapitulo(Capitulo capitulo) throws IOException {
-        RandomAccessFile raf = new RandomAccessFile("dataset/capitulos.db", "rw");
+    private static boolean criarCapitulo(Capitulo capitulo, TreeBplus arvore, HashEstendido hash) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile("dataset/capitulos.db", "rw")) {
+            byte[] bytes = capitulo.toByteArray();
+            long endereco = raf.length(); // Endereço atual onde será escrito
 
-        byte[] bytes = capitulo.toByteArray();
+            AuxFuncoes.escreverCapitulo(bytes, endereco);
+            AuxFuncoes.IncrementaUltimoIdInserido();
 
-        AuxFuncoes.escreverCapitulo(bytes, raf.length());
-        AuxFuncoes.IncrementaUltimoIdInserido();
+            // Atualiza a árvore B+ com o novo ID e endereço
+            arvore.inserir(capitulo.getId(), endereco);
 
-        
+            // Atualiza o arquivo de índice
+            arvore.salvarFolhasNoArquivo("dataset/capitulosIndiceArvore.db");
 
-        raf.close();
+            hash.inserir(capitulo.getId(), endereco);
+
+            hash.construirDoArquivo("dataset/capitulos.db");
+
+            
+        }
         return true;
     }
 
-    private static boolean lerCapitulo(int ID) throws IOException {
-        RandomAccessFile raf = new RandomAccessFile("dataset/capitulos.db", "rw");
-
-        raf.seek(4);
-
-        while (raf.getFilePointer() < raf.length()) {
+    private static boolean lerCapitulo(int ID, TreeBplus arvore, HashEstendido hash) throws IOException {
+        // Buscar nos dois índices
+        Long enderecoArvore = arvore.buscar(ID);
+        Long enderecoHash = hash.buscar(ID);
+    
+        // Evita imprimir null diretamente
+        MyIO.println("[Arvore B+] Endereco encontrado: " + 
+            (enderecoArvore != null ? enderecoArvore : "nao encontrado"));
+        MyIO.println("[Hash Estendido] Endereco encontrado: " + 
+            (enderecoHash != null ? enderecoHash : "nao encontrado"));
+    
+        // Prioridade: Hash, se não existir, usa da Árvore
+        Long endereco = (enderecoHash != null) ? enderecoHash : enderecoArvore;
+    
+        // ✅ ADICIONE ESSA VERIFICAÇÃO
+        if (endereco == null) {
+            MyIO.println("ID não encontrado em nenhum índice.");
+            return false;
+        }
+    
+        try (RandomAccessFile raf = new RandomAccessFile("dataset/capitulos.db", "rw")) {
+            raf.seek(endereco);
             byte valido = raf.readByte();
             int tamanhoVetor = raf.readInt();
-
+    
             if (valido == 1) {
                 byte[] byteArray = new byte[tamanhoVetor];
                 raf.readFully(byteArray);
-
+    
                 Capitulo capitulo = new Capitulo();
                 capitulo.fromByteArray(byteArray);
-
-                if (capitulo.getId() == ID) {
-                    MyIO.println(capitulo.toString());
-                    return true;
-                }
-            } else {
-                raf.skipBytes(tamanhoVetor);
+    
+                MyIO.println(capitulo.toString());
+                return true;
             }
         }
-
-        raf.close();
+    
         return false;
     }
+    
+    
 
-    private static void lerCapitulos(int[] ids) throws IOException {
-        RandomAccessFile raf = new RandomAccessFile("dataset/capitulos.db", "rw");
-
-        raf.seek(4);
-
-        while (raf.getFilePointer() < raf.length()) {
-            byte valido = raf.readByte();
-            int tamanhoVetor = raf.readInt();
-
-            if (valido == 1) {
-                byte[] byteArray = new byte[tamanhoVetor];
-                raf.readFully(byteArray);
-
-                Capitulo capitulo = new Capitulo();
-                capitulo.fromByteArray(byteArray);
-
-                for (int id : ids) {
-                    if (capitulo.getId() == id) {
-                        MyIO.println(capitulo.toString());
+    private static void lerCapitulos(int[] ids, TreeBplus arvore, HashEstendido hash) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile("dataset/capitulos.db", "rw")) {
+            for (int id : ids) {
+                Long enderecoArvore = arvore.buscar(id);
+                Long enderecoHash = hash.buscar(id);
+    
+                MyIO.println("\n[ID " + id + "]");
+                MyIO.println("  [Árvore B+] Endereço: " + enderecoArvore);
+                MyIO.println("  [Hash Estendido] Endereço: " + enderecoHash);
+    
+                Long endereco = (enderecoHash != null) ? enderecoHash : enderecoArvore;
+    
+                if (endereco != null) {
+                    raf.seek(endereco);
+                    byte valido = raf.readByte();
+                    int tamanhoVetor = raf.readInt();
+    
+                    if (valido == 1) {
+                        byte[] byteArray = new byte[tamanhoVetor];
+                        raf.readFully(byteArray);
+    
+                        Capitulo capitulo = new Capitulo();
+                        capitulo.fromByteArray(byteArray);
+    
+                        MyIO.println("  Conteúdo:");
+                        MyIO.println("  " + capitulo.toString());
+                    } else {
+                        MyIO.println("  Registro marcado como removido.");
                     }
+                } else {
+                    MyIO.println("  Não encontrado em nenhum índice.");
                 }
-            } else {
-                raf.skipBytes(tamanhoVetor);
             }
         }
-
-        raf.close();
-
     }
+    
 
-    private static boolean atualizarCapitulo(int ID) throws IOException {
-        RandomAccessFile RAF = new RandomAccessFile(BD, "rw");
-        RAF.seek(4);
+    private static boolean atualizarCapitulo(int ID, TreeBplus arvore, HashEstendido hash) throws IOException {
+        try (RandomAccessFile RAF = new RandomAccessFile(BD, "rw")) {
+            Long posicao = arvore.buscar(ID);
 
-        while (RAF.getFilePointer() < RAF.length()) {
-            long posicao = RAF.getFilePointer();
+            if (posicao == null) {
+                MyIO.println("ID não encontrado na árvore.");
+                RAF.close();
+                return false;
+            }
+
+            RAF.seek(posicao);
             byte valido = RAF.readByte();
             int tamanhoVetor = RAF.readInt();
 
             if (valido == 1) {
-
                 byte[] byteArray = new byte[tamanhoVetor];
                 RAF.readFully(byteArray);
+
                 Capitulo capitulo = new Capitulo();
                 capitulo.fromByteArray(byteArray);
 
@@ -154,71 +188,75 @@ public class Menu {
                     byte[] novoByteArray = novoCapitulo.toByteArray();
 
                     if (novoByteArray.length <= tamanhoVetor) {
-                        MyIO.println("Atualizacao coube no espaco reservado");
-                        RAF.seek(posicao + 5);
+                        MyIO.println("Atualização coube no espaço reservado.");
+                        RAF.seek(posicao + 5); // 1 byte validação + 4 bytes tamanho
                         RAF.write(novoByteArray);
-
                         RAF.write(new byte[tamanhoVetor - novoByteArray.length]);
-
-                        return true;
-
                     } else {
-                        MyIO.println("Atualizacao nao coube no espaco reservado, inserido no fim do arquivo");
+                        MyIO.println("Atualização não coube. Inserido no fim do arquivo.");
 
+                        // Marca como removido
                         RAF.seek(posicao);
                         RAF.writeByte(0);
-                        AuxFuncoes.escreverCapitulo(novoByteArray, RAF.length());
-                        return true;
-                    }
 
-                }
+                        // Escreve no final
+                        long novaPosicao = RAF.length();
+                        AuxFuncoes.escreverCapitulo(novoByteArray, novaPosicao);
 
-            } else {
-                RAF.skipBytes(tamanhoVetor);
-            }
-
-        }
-
-        RAF.close();
-        return false;
-    }
-
-    private static boolean deletarCapitulo(int ID) throws IOException {
-        RandomAccessFile RAF = new RandomAccessFile(BD, "rw");
-
-        RAF.seek(0);
-        int UltimoId = RAF.readInt();
-
-        while (RAF.getFilePointer() < RAF.length()) {
-            long ponteiro = RAF.getFilePointer();
-            byte valido = RAF.readByte();
-            int tamanhoVetor = RAF.readInt();
-
-            if (valido == 1) {
-
-                byte[] byteArray = new byte[tamanhoVetor];
-                RAF.readFully(byteArray);
-                Capitulo capitulo = new Capitulo();
-                capitulo.fromByteArray(byteArray);
-
-                if (capitulo.getId() == ID) {
-                    RAF.seek(ponteiro);
-                    RAF.writeByte(0);
-
-                    if (ID == UltimoId) {
-                        RAF.seek(0);
-                        RAF.writeInt(UltimoId - 1);
+                        // Atualiza o índice na árvore
+                        arvore.inserir(ID, novaPosicao);
                     }
 
                     RAF.close();
-                    return true;
 
+                    // Atualiza arquivo de índice
+                    arvore.salvarFolhasNoArquivo("dataset/capitulosIndiceArvore.db");
+                    return true;
                 }
-            } else {
-                RAF.skipBytes(tamanhoVetor);
             }
         }
-        RAF.close();
         return false;
     }
+
+    private static boolean deletarCapitulo(int ID, TreeBplus arvore, HashEstendido hash) throws IOException {
+        try (RandomAccessFile RAF = new RandomAccessFile(BD, "rw")) {
+            RAF.seek(0);
+            int UltimoId = RAF.readInt();
+
+            while (RAF.getFilePointer() < RAF.length()) {
+                long ponteiro = RAF.getFilePointer();
+                byte valido = RAF.readByte();
+                int tamanhoVetor = RAF.readInt();
+
+                if (valido == 1) {
+                    byte[] byteArray = new byte[tamanhoVetor];
+                    RAF.readFully(byteArray);
+                    Capitulo capitulo = new Capitulo();
+                    capitulo.fromByteArray(byteArray);
+
+                    if (capitulo.getId() == ID) {
+                        // Exclusão lógica no arquivo
+                        RAF.seek(ponteiro);
+                        RAF.writeByte(0);
+
+                        if (ID == UltimoId) {
+                            RAF.seek(0);
+                            RAF.writeInt(UltimoId - 1);
+                        }
+
+                        // --- Atualiza árvore B+ ---
+                        arvore.remover(ID); // você deve garantir que este método está implementado
+                        arvore.salvarFolhasNoArquivo("dataset/capitulosIndiceArvore.db");
+
+                        RAF.close();
+                        return true;
+                    }
+                } else {
+                    RAF.skipBytes(tamanhoVetor);
+                }
+            }
+        }
+        return false;
+    }
+
 }

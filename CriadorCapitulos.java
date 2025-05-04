@@ -3,7 +3,7 @@ import java.text.ParseException;
 
 public class CriadorCapitulos {
 
-    public static void CriadorCapitulos() throws IOException, ParseException {
+    public static void gerarCapitulos() throws IOException, ParseException {
         String csv = "dataset/capitulos.csv";
         String binario = "dataset/capitulos.db";
 
@@ -11,11 +11,8 @@ public class CriadorCapitulos {
 
         // Se o arquivo já existir, não faz nada
         if (arquivoBinario.exists()) {
-            System.out.println("Arquivo capitulos.db já existe. Importação ignorada.");
             return;
         }
-
-        System.out.println("Arquivo capitulos.db não encontrado. Iniciando importação...");
 
         // Abre o arquivo CSV para leitura e o arquivo binário para escrita
         BufferedReader br = new BufferedReader(new FileReader(csv));

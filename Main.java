@@ -5,16 +5,21 @@ public class Main {
 
     public static void main(String[] args) throws ParseException, IOException {
 
-        //Gerar os arquivos capitulos.db e capitulosIndice.db
-        CriadorCapitulos.CriadorCapitulos();
-        CriadorIndice.gerarIndice();
+        // Gerar os arquivos capitulos.db e capitulosIndice.db
+        CriadorCapitulos.gerarCapitulos();
 
-        //Construir a árvore B+
-        TreeBplus arvore = new TreeBplus();
-        arvore.construirArvoreDoArquivo("dataset/capitulosIndice.db");
+        // Construir a árvore B+ e Hash
+        System.out.print("Digite a ordem da Árvore B+: ");
+        int ordem = MyIO.readInt();
 
+        TreeBplus arvore = new TreeBplus(ordem);
+        arvore.construirArvoreDoArquivo("dataset/capitulos.db");
 
-        // Passo 3: Iniciar o menu
-        Menu.menu();
+        HashEstendido hash = new HashEstendido();
+        hash.construirDoArquivo("dataset/capitulos.db");
+
+        arvore.imprimirFolhas();
+        // Iniciar o menu
+        Menu.menu(arvore, hash);
     }
 }
