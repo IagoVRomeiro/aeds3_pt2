@@ -7,7 +7,7 @@ public class HashEstendido {
     private int profundidadeGlobal;
     private List<Bucket> diretorio;
     private final String arquivoIndice = "dataset/capitulosIndiceHash.db";
-    public String caminhoArquivo = "dataset/capitulos.db";
+    private final String capitulos = "dataset/capitulos.db";
 
     public HashEstendido() {
         this.profundidadeGlobal = 1;
@@ -59,7 +59,7 @@ public class HashEstendido {
         }
     }
 
-    public void construirDoArquivoHash() {
+    public void construirDoArquivo(String caminhoArquivo) {
         File f = new File(arquivoIndice);
         if (f.exists()) {
             return;
@@ -77,7 +77,7 @@ public class HashEstendido {
                     inserir(id, posicaoRegistro);
                 }
     
-                raf.seek(posicaoRegistro + 1 + 4 + tamanhoRegistro); // pula para o próximo
+                raf.seek(posicaoRegistro + 5 + tamanhoRegistro); // pula para o próximo
             }
         } catch (IOException e) {
             System.err.println("Erro ao construir índice: " + e.getMessage());
