@@ -10,16 +10,14 @@ public class Main {
 
         // Construir a árvore B+ e Hash
         System.out.print("Digite a ordem da Árvore B+: ");
-        int ordem = MyIO.readInt();
 
-        TreeBplus arvore = new TreeBplus(ordem);
-        arvore.construirArvoreDoArquivo("dataset/capitulos.db");
+        TreeBplus arvore = new TreeBplus(MyIO.readInt());
+        arvore.construirArvoreDoArquivo();
 
         HashEstendido hash = new HashEstendido();
-        hash.construirDoArquivo("dataset/capitulos.db");
+        hash.construirDoArquivoHash();
 
-        arvore.imprimirFolhas();
         // Iniciar o menu
-        Menu.menu(arvore, hash);
+        CRUD.CRUD(arvore, hash);
     }
 }

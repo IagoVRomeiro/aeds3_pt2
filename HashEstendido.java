@@ -7,6 +7,7 @@ public class HashEstendido {
     private int profundidadeGlobal;
     private List<Bucket> diretorio;
     private final String arquivoIndice = "dataset/capitulosIndiceHash.db";
+    public String caminhoArquivo = "dataset/capitulos.db";
 
     public HashEstendido() {
         this.profundidadeGlobal = 1;
@@ -58,7 +59,7 @@ public class HashEstendido {
         }
     }
 
-    public void construirDoArquivo(String caminhoArquivo) {
+    public void construirDoArquivoHash() {
         File f = new File(arquivoIndice);
         if (f.exists()) {
             return;

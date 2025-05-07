@@ -4,6 +4,8 @@ import java.util.*;
 public class TreeBplus {
     public No raiz;
     private int ordem;
+    String caminhoIndice = "dataset/capitulosIndiceArvore.db"; 
+    String caminhoArquivo ="dataset/capitulos.db";
 
     public TreeBplus(int ordem) {
         this.ordem = ordem;
@@ -32,8 +34,8 @@ public class TreeBplus {
     }
 
     
-    public void construirArvoreDoArquivo(String caminhoArquivo) {
-        String caminhoIndice = "dataset/capitulosIndiceArvore.db";
+    public void construirArvoreDoArquivo() {
+
         File indice = new File(caminhoIndice);
     
         if (indice.exists()) {
@@ -64,7 +66,7 @@ public class TreeBplus {
                 }
             }
     
-            salvarFolhasNoArquivo(caminhoIndice);
+            salvarFolhasNoArquivo();
     
         } catch (IOException e) {
             System.err.println("Erro ao ler o arquivo de dados: " + e.getMessage());
@@ -76,7 +78,7 @@ public class TreeBplus {
 
     
     
-    public void salvarFolhasNoArquivo(String caminhoIndice) {
+    public void salvarFolhasNoArquivo() {
         try (DataOutputStream dos = new DataOutputStream(new FileOutputStream(caminhoIndice))) {
             No atual = encontrarFolhaMaisEsquerda();
             while (atual != null) {
